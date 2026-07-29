@@ -28,7 +28,7 @@ const CATEGORIES = [
   { id: 'productivity', label: 'Productivity', icon: Zap },
 ];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ai-workspace-ry2g.onrender.com/api';
 
 function App() {
   const [tools, setTools] = useState([]);
