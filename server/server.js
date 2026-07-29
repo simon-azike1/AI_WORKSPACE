@@ -17,7 +17,6 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     if (frontendURL && origin === frontendURL) return callback(null, true);
     // Allow any http or https localhost origin for development
-    if (/^
     if (/^https?:\/\/localhost:[0-9]+$/.test(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   }
