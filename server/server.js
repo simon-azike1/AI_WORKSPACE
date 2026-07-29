@@ -11,7 +11,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const frontendURL = process.env.FRONTEND_URL;
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (frontendURL && origin === frontendURL) return callback(null, true);
+    // Allow any http or https localhost origin for development
+    if (/^
+    if (/^https?:\/\/localhost:[0-9]+$/.test(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  }
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
