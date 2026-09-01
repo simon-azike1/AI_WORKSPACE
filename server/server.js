@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const crypto = require('crypto');
 
 const toolRoutes = require('./routes/tools');
 
@@ -26,6 +27,30 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { password } = req.body;
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET;
+
+  if (!configuredPassword || !sessionSecret) {
+    return res.status(503).json({ message: 'Admin authentication is not configured.' });
+  }
+
+  const passwordBuffer = typeof password === 'string' ? Buffer.from(password) : Buffer.alloc(0);
+  const configuredPasswordBuffer = Buffer.from(configuredPassword);
+  const passwordMatches = passwordBuffer.length === configuredPasswordBuffer.length
+    && crypto.timingSafeEqual(passwordBuffer, configuredPasswordBuffer);
+
+  if (!passwordMatches) {
+    return res.status(401).json({ message: 'Invalid admin password.' });
+  }
+
+  const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
+  const payload = `admin:${expiresAt}`;
+  const signature = crypto.createHmac('sha256', sessionSecret).update(payload).digest('hex');
+  res.json({ token: `${payload}:${signature}`, expiresAt });
 });
 
 app.use('/api/tools', toolRoutes);

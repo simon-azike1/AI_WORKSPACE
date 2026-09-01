@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const Tool = require('../models/Tool');
 
 const router = express.Router();
@@ -27,6 +28,29 @@ function normalizeUrl(value) {
   return trimmed;
 }
 
+function requireAdmin(req, res, next) {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  const [role, expiresAt, signature] = token ? token.split(':') : [];
+  const payload = `${role}:${expiresAt}`;
+  const expectedSignature = process.env.ADMIN_SESSION_SECRET
+    ? crypto.createHmac('sha256', process.env.ADMIN_SESSION_SECRET).update(payload).digest('hex')
+    : '';
+  const signaturesMatch = signature
+    && signature.length === expectedSignature.length
+    && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+
+  if (
+    role !== 'admin'
+    || !expiresAt
+    || Number(expiresAt) <= Date.now()
+    || !signaturesMatch
+  ) {
+    return res.status(401).json({ message: 'Admin permission required.' });
+  }
+
+  next();
+}
+
 router.get('/', async (_req, res) => {
   try {
     const tools = await Tool.find().sort({ createdAt: -1 });
@@ -42,7 +66,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   const { name, url, cat, icon } = req.body;
 
   if (!name || !url || !cat) {
@@ -63,7 +87,36 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
+  const { name, url, cat, icon } = req.body;
+
+  if (!name || !url || !cat) {
+    return res.status(400).json({ message: 'Name, URL, and category are required.' });
+  }
+
+  try {
+    const updated = await Tool.findByIdAndUpdate(
+      req.params.id,
+      {
+        name: name.trim(),
+        url: normalizeUrl(url),
+        cat: cat.trim(),
+        icon: (icon || name).trim().slice(0, 2).toUpperCase(),
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Tool not found' });
+    }
+
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: 'Unable to update tool', error: error.message });
+  }
+});
+
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const deleted = await Tool.findByIdAndDelete(req.params.id);
     if (!deleted) {
