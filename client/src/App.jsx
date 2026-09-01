@@ -13,9 +13,15 @@ import {
   Pencil, 
   Trash2, 
   ExternalLink,
-  FolderOpen
+  FolderOpen,
+  LockKeyhole,
+  ArrowLeft,
+  Menu,
+  SlidersHorizontal,
 } from 'lucide-react';
 import './App.css';
+
+const BRAND_LOGO = '/logo.png';
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: Globe },
@@ -31,6 +37,7 @@ const CATEGORIES = [
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ai-workspace-ry2g.onrender.com/api';
 
 function App() {
+  const isAdminRoute = window.location.pathname === '/admin';
   const [tools, setTools] = useState([]);
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
@@ -39,6 +46,40 @@ function App() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem('adminToken') || '');
+  const [isLoginOpen, setIsLoginOpen] = useState(isAdminRoute && !localStorage.getItem('adminToken'));
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(true);
+
+  const adminHeaders = adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoginError('');
+
+    try {
+      const response = await fetch(`${API_BASE.replace(/\/api$/, '')}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: loginPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to sign in.');
+      localStorage.setItem('adminToken', data.token);
+      setAdminToken(data.token);
+      setLoginPassword('');
+      setIsLoginOpen(false);
+    } catch (err) {
+      setLoginError(err.message || 'Unable to sign in.');
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('adminToken');
+    setAdminToken('');
+    cancelEdit();
+  };
 
   // Load tools on mount
   useEffect(() => {
@@ -108,17 +149,12 @@ function App() {
         // Edit mode (PUT)
         const response = await fetch(`${API_BASE}/tools/${editingTool._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...adminHeaders },
           body: JSON.stringify(form),
         });
 
-        let data;
-        if (response.ok) {
-          data = await response.json();
-        } else {
-          // Fallback for demo mode if PUT fails/not implemented in backend
-          data = { ...editingTool, ...form };
-        }
+        if (!response.ok) throw new Error((await response.json()).message || 'Unable to update tool.');
+        const data = await response.json();
 
         setTools((current) =>
           current.map((tool) => (tool._id === editingTool._id ? { ...tool, ...form } : tool))
@@ -128,17 +164,12 @@ function App() {
         // Add mode (POST)
         const response = await fetch(`${API_BASE}/tools`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...adminHeaders },
           body: JSON.stringify(form),
         });
 
-        let data;
-        if (response.ok) {
-          data = await response.json();
-        } else {
-          // Fallback mock tool for demo mode
-          data = { _id: Date.now().toString(), ...form };
-        }
+        if (!response.ok) throw new Error((await response.json()).message || 'Unable to add tool.');
+        const data = await response.json();
 
         setTools((current) => [data, ...current]);
       }
@@ -172,17 +203,46 @@ function App() {
 
   const removeTool = async (id) => {
     try {
-      const response = await fetch(`${API_BASE}/tools/${id}`, { method: 'DELETE' });
-      if (response.ok || response.status === 404 || response.status === 0) {
-        setTools((current) => current.filter((tool) => tool._id !== id));
-      } else {
-        throw new Error();
-      }
-    } catch (err) {
-      // Fallback local deletion for demo mode
+      const response = await fetch(`${API_BASE}/tools/${id}`, { method: 'DELETE', headers: adminHeaders });
+      if (!response.ok) throw new Error((await response.json()).message || 'Unable to delete tool.');
       setTools((current) => current.filter((tool) => tool._id !== id));
+    } catch (err) {
+      setError(err.message || 'Unable to delete tool.');
     }
   };
+
+  if (isAdminRoute && !adminToken) {
+    return (
+      <div className="admin-login-page">
+        <div className="admin-login-panel">
+          <div className="login-icon"><LockKeyhole size={22} /></div>
+          <div className="brand-lockup admin-brand-lockup">
+            {/* <img src={BRAND_LOGO} alt="Simziktech" className="brand-logo" /> */}
+            <span>SIMZIKTECH</span>
+          </div>
+          <span className="eyebrow">Private workspace</span>
+          <h1>Admin access</h1>
+          <p>Sign in to manage the shared AI directory.</p>
+          {loginError && <div className="form-error-banner">{loginError}</div>}
+          <form className="admin-login-form" onSubmit={handleLogin}>
+            <label htmlFor="admin-password">Password</label>
+            <input
+              id="admin-password"
+              type="password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              autoFocus
+              required
+            />
+            <button type="submit" className="btn-submit">Enter workspace</button>
+          </form>
+          <a className="back-to-directory" href="/">
+            <ArrowLeft size={16} /> Back to directory
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -192,10 +252,22 @@ function App() {
 
       <header className="dashboard-header">
         <div className="brand-area">
-          <span className="badge">MERN Stack</span>
-          <h1>AI Hub Launcher</h1>
-          <p className="subtitle">Your curated AI tool directory, backed by MongoDB and React.</p>
+          <div className="brand-lockup">
+            {/* <img src={BRAND_LOGO} alt="Simziktech" className="brand-logo" /> */}
+            <span>SIMZIKTECH</span>
+          </div>
+          <span className="badge">Smart solutions. Simplified.</span>
+          <h1>AI tools, one clear workspace.</h1>
+          <p className="subtitle">A curated launchpad for the tools that move your work forward.</p>
         </div>
+
+        {isAdminRoute && <div className="admin-controls">
+          {adminToken ? (
+            <button type="button" className="admin-status" onClick={logout} title="Sign out of admin mode">
+              <LockKeyhole size={16} /> Admin mode
+            </button>
+          ) : null}
+        </div>}
 
         <div className="stats-row">
           <div className="stat-card">
@@ -208,7 +280,7 @@ function App() {
             </span>
             <span className="stat-label">Active Categories</span>
           </div>
-          <button
+          {adminToken && <button
             type="button"
             className="btn-primary add-tool-trigger"
             onClick={() => {
@@ -219,11 +291,29 @@ function App() {
           >
             <Plus size={18} />
             Add New Tool
-          </button>
+          </button>}
         </div>
       </header>
 
-      <section className="search-filter-bar">
+      <div className="workspace-layout">
+      <aside className={`filter-sidebar ${isFilterOpen ? 'is-open' : 'is-collapsed'}`}>
+        <div className="filter-sidebar-heading">
+          <div className="filter-sidebar-title">
+            <span className="eyebrow">Directory</span>
+            {isFilterOpen && <h2>Explore tools</h2>}
+          </div>
+          {isFilterOpen && <span className="tool-count">{visibleTools.length}</span>}
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setIsFilterOpen((open) => !open)}
+            title={isFilterOpen ? 'Collapse filters' : 'Expand filters'}
+            aria-label={isFilterOpen ? 'Collapse filters' : 'Expand filters'}
+          >
+            {isFilterOpen ? <Menu size={18} /> : <SlidersHorizontal size={18} />}
+          </button>
+        </div>
+        {isFilterOpen && <div className="filter-sidebar-content">
         <div className="search-wrapper">
           <Search size={20} className="search-icon" />
           <input
@@ -260,7 +350,8 @@ function App() {
             );
           })}
         </div>
-      </section>
+        </div>}
+      </aside>
 
       <main className="main-content">
         {loading && (
@@ -307,22 +398,22 @@ function App() {
                 </div>
                 
                 <div className="action-buttons">
-                  <button
+                  {adminToken && <button
                     type="button"
                     className="action-btn edit-btn"
                     title="Edit Tool"
                     onClick={() => startEdit(tool)}
                   >
                     <Pencil size={16} />
-                  </button>
-                  <button
+                  </button>}
+                  {adminToken && <button
                     type="button"
                     className="action-btn delete-btn"
                     title="Delete Tool"
                     onClick={() => removeTool(tool._id)}
                   >
                     <Trash2 size={16} />
-                  </button>
+                  </button>}
                 </div>
               </div>
 
@@ -344,6 +435,31 @@ function App() {
           ))}
         </div>
       </main>
+      </div>
+
+      {isLoginOpen && isAdminRoute && (
+        <div className="login-backdrop" onClick={() => setIsLoginOpen(false)}>
+          <form className="login-dialog" onSubmit={handleLogin} onClick={(event) => event.stopPropagation()}>
+            <div className="login-icon"><LockKeyhole size={22} /></div>
+            <h2>Admin sign in</h2>
+            <p>Only the administrator can change the shared directory.</p>
+            {loginError && <div className="form-error-banner">{loginError}</div>}
+            <label htmlFor="admin-password">Admin password</label>
+            <input
+              id="admin-password"
+              type="password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              autoFocus
+              required
+            />
+            <div className="form-actions">
+              <button type="button" className="btn-cancel" onClick={() => setIsLoginOpen(false)}>Cancel</button>
+              <button type="submit" className="btn-submit">Sign in</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Slide-out Sidebar Panel */}
       <div className={`sidebar-backdrop ${isPanelOpen ? 'is-visible' : ''}`} onClick={cancelEdit}></div>
