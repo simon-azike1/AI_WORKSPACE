@@ -67,7 +67,7 @@ router.get('/', async (_req, res) => {
 });
 
 router.post('/', requireAdmin, async (req, res) => {
-  const { name, url, cat, icon } = req.body;
+  const { name, url, cat, icon, description } = req.body;
 
   if (!name || !url || !cat) {
     return res.status(400).json({ message: 'Name, URL, and category are required.' });
@@ -79,6 +79,7 @@ router.post('/', requireAdmin, async (req, res) => {
       url: normalizeUrl(url),
       cat: cat.trim(),
       icon: (icon || name).trim().slice(0, 2).toUpperCase(),
+      description: (description || '').trim(),
     });
 
     res.status(201).json(tool);
@@ -88,7 +89,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 router.put('/:id', requireAdmin, async (req, res) => {
-  const { name, url, cat, icon } = req.body;
+  const { name, url, cat, icon ,description} = req.body;
 
   if (!name || !url || !cat) {
     return res.status(400).json({ message: 'Name, URL, and category are required.' });
@@ -102,6 +103,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
         url: normalizeUrl(url),
         cat: cat.trim(),
         icon: (icon || name).trim().slice(0, 2).toUpperCase(),
+        description: (description || '').trim(),
       },
       { new: true, runValidators: true },
     );

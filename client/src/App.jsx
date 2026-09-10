@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { 
-  Globe, 
-  MessageSquare, 
-  Code2, 
-  Image as ImageIcon, 
-  Video as VideoIcon, 
-  Music, 
-  Search, 
-  Zap, 
-  Plus, 
-  X, 
-  Pencil, 
-  Trash2, 
+import {
+  Globe,
+  MessageSquare,
+  Code2,
+  Image as ImageIcon,
+  Video as VideoIcon,
+  Music,
+  Search,
+  Zap,
+  Plus,
+  X,
+  Pencil,
+  Trash2,
   ExternalLink,
   FolderOpen,
   LockKeyhole,
   ArrowLeft,
   Menu,
   SlidersHorizontal,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+
 import './App.css';
 
 const BRAND_LOGO = '/logo.png';
@@ -37,11 +40,12 @@ const CATEGORIES = [
 const API_BASE = import.meta.env.VITE_API_URL || 'https://ai-workspace-ry2g.onrender.com/api';
 
 function App() {
+  const [showPassword, setShowPassword] = useState(false);
   const isAdminRoute = window.location.pathname === '/admin';
   const [tools, setTools] = useState([]);
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
-  const [form, setForm] = useState({ name: '', url: '', cat: 'chat', icon: '' });
+  const [form, setForm] = useState({ name: '', url: '', cat: 'chat', icon: '', description: '' });
   const [editingTool, setEditingTool] = useState(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [error, setError] = useState('');
@@ -96,12 +100,12 @@ function App() {
         setError('Unable to reach the API. Running in local demo mode.');
         // Fallback mock data for visual presentation if API is offline
         setTools([
-          { _id: '1', name: 'ChatGPT', url: 'https://chat.openai.com', cat: 'chat', icon: 'CG' },
-          { _id: '2', name: 'v0.dev', url: 'https://v0.dev', cat: 'coding', icon: 'V0' },
-          { _id: '3', name: 'Midjourney', url: 'https://midjourney.com', cat: 'image', icon: 'MJ' },
-          { _id: '4', name: 'Runway Gen-3', url: 'https://runwayml.com', cat: 'video', icon: 'RW' },
-          { _id: '5', name: 'ElevenLabs', url: 'https://elevenlabs.io', cat: 'audio', icon: 'EL' },
-          { _id: '6', name: 'Perplexity AI', url: 'https://perplexity.ai', cat: 'research', icon: 'PX' },
+          { _id: '1', name: 'ChatGPT', url: 'https://chat.openai.com', cat: 'chat', icon: 'CG', description: 'Write, brainstorm, analyze files, and get help with everyday questions.' },
+          { _id: '2', name: 'v0.dev', url: 'https://v0.dev', cat: 'coding', icon: 'V0', description: 'Generate polished web interfaces and React components from prompts.' },
+          { _id: '3', name: 'Midjourney', url: 'https://midjourney.com', cat: 'image', icon: 'MJ', description: 'Create cinematic images, concepts, and expressive visual artwork.' },
+          { _id: '4', name: 'Runway Gen-3', url: 'https://runwayml.com', cat: 'video', icon: 'RW', description: 'Turn text and images into cinematic AI-generated video clips.' },
+          { _id: '5', name: 'ElevenLabs', url: 'https://elevenlabs.io', cat: 'audio', icon: 'EL', description: 'Create natural voiceovers, narration, and custom spoken audio.' },
+          { _id: '6', name: 'Perplexity AI', url: 'https://perplexity.ai', cat: 'research', icon: 'PX', description: 'Research questions with web-backed answers and source citations.' },
         ]);
       } finally {
         setLoading(false);
@@ -175,7 +179,7 @@ function App() {
       }
 
       // Reset form and close sidebar
-      setForm({ name: '', url: '', cat: 'chat', icon: '' });
+      setForm({ name: '', url: '', cat: 'chat', icon: '', description: '' });
       setIsPanelOpen(false);
     } catch (err) {
       setError(err.message || 'Failed to save tool.');
@@ -190,6 +194,7 @@ function App() {
       url: tool.url,
       cat: tool.cat,
       icon: tool.icon || '',
+      description: tool.description || '',
     });
     setIsPanelOpen(true);
   };
@@ -197,7 +202,7 @@ function App() {
   // Cancel edit mode
   const cancelEdit = () => {
     setEditingTool(null);
-    setForm({ name: '', url: '', cat: 'chat', icon: '' });
+    setForm({ name: '', url: '', cat: 'chat', icon: '', description: '' });
     setIsPanelOpen(false);
   };
 
@@ -226,14 +231,25 @@ function App() {
           {loginError && <div className="form-error-banner">{loginError}</div>}
           <form className="admin-login-form" onSubmit={handleLogin}>
             <label htmlFor="admin-password">Password</label>
-            <input
-              id="admin-password"
-              type="password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              autoFocus
-              required
-            />
+            <div className="password-field">
+              <input
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                autoFocus
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
             <button type="submit" className="btn-submit">Enter workspace</button>
           </form>
           <a className="back-to-directory" href="/">
@@ -285,7 +301,7 @@ function App() {
             className="btn-primary add-tool-trigger"
             onClick={() => {
               setEditingTool(null);
-              setForm({ name: '', url: '', cat: 'chat', icon: '' });
+              setForm({ name: '', url: '', cat: 'chat', icon: '', description: '' });
               setIsPanelOpen(true);
             }}
           >
@@ -397,7 +413,7 @@ function App() {
                   )}
                 </div>
                 
-                <div className="action-buttons">
+                <div className={`action-buttons ${adminToken ? 'admin-actions-visible' : ''}`}>
                   {adminToken && <button
                     type="button"
                     className="action-btn edit-btn"
@@ -422,7 +438,9 @@ function App() {
                 <span className={`category-tag tag-${tool.cat}`}>
                   {CATEGORIES.find((c) => c.id === tool.cat)?.label || tool.cat}
                 </span>
-                <p className="tool-url-preview">{tool.url.replace(/^https?:\/\/(www\.)?/, '')}</p>
+                <p className="tool-description">
+                  {tool.description || 'A useful AI tool for your workflow.'}
+                </p>
               </div>
 
               <div className="tool-card-footer">
@@ -445,14 +463,25 @@ function App() {
             <p>Only the administrator can change the shared directory.</p>
             {loginError && <div className="form-error-banner">{loginError}</div>}
             <label htmlFor="admin-password">Admin password</label>
-            <input
-              id="admin-password"
-              type="password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              autoFocus
-              required
-            />
+            <div className="password-field">
+              <input
+                id="admin-password"
+                type={showPassword ? 'text' : 'password'}
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                autoFocus
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
             <div className="form-actions">
               <button type="button" className="btn-cancel" onClick={() => setIsLoginOpen(false)}>Cancel</button>
               <button type="submit" className="btn-submit">Sign in</button>
@@ -524,6 +553,19 @@ function App() {
               maxLength="2"
             />
             <span className="field-hint">Max 2 characters. If blank, initials will be generated automatically.</span>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="tool-description">What is this tool used for?</label>
+            <textarea
+              id="tool-description"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              placeholder="e.g. Generate product mockups and campaign visuals from text prompts."
+              maxLength={140}
+              rows={3}
+            />
+            <span className="field-hint">Add a short, specific description so people know when to choose this tool.</span>
           </div>
 
           <div className="form-actions">
